@@ -36,7 +36,7 @@ def genemark(fasta_file: str, prokaryotic: bool = True):
 
     fixed_fasta_file = fix_file(fasta_file) #file needs to be fixed or else it all breaks, also needs to be str
     
-    command = ["perl", "gms2_macos/gms2.pl"] #run subprocess to access tool
+    command = ["perl", "../gms2_macos/gms2.pl"] #run subprocess to access tool
     command.extend([
         "--seq", fixed_fasta_file,
         "--genome-type", "bacteria" if prokaryotic else "auto"
