@@ -3,7 +3,7 @@ from Bio import SeqIO
 from Bio.Blast import NCBIXML
 import ssl
 
-#really slow so it may require the use of setting up a local database
+#really slow(1 min runtime) so it may require the use of setting up a local database
 
 def run_blast_nucleotide(fasta_file="app/Jollymon_gene_2.fasta", database="nr"):
     ssl._create_default_https_context = ssl._create_unverified_context
