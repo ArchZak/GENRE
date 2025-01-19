@@ -1,28 +1,32 @@
 from Bio.Blast import NCBIWWW
 from Bio import SeqIO
 from Bio.Blast import NCBIXML
+import os
 import ssl
 
 #really slow(1 min runtime) so it may require the use of setting up a local database
 
-def run_blast_nucleotide(fasta_file="app/Jollymon_gene_2.fasta", database="nr"):
-    ssl._create_default_https_context = ssl._create_unverified_context
+def run_blastp(fasta_file="app/Jollymon_gene_2.fasta", database="nr"):
+    if not os.path.exists(fasta_file): #checks to see if fasta_file exists, should return page error later
+        raise FileNotFoundError(f"given fasta file not found: {fasta_file}")
     
-    sequences = list(SeqIO.parse(fasta_file, "fasta"))
+    ssl._create_default_https_context = ssl._create_unverified_context #wont run without ssl verification
+    
+    sequences = list(SeqIO.parse(fasta_file, "fasta")) #parse fasta file
     
     if not sequences:
-        raise ValueError(f"no sequences found in {fasta_file}")
+        raise ValueError(f"no sequences found in {fasta_file}") #check for fasta file
     
-    print(f"found {len(sequences)} sequences in {fasta_file}")
+    print(f"found {len(sequences)} sequences in {fasta_file}") #i like seeing stuff while it runs idk
     
     for i, sequence in enumerate(sequences, 1):
-        print(f"processing sequence {i} out of {len(sequences)}: {sequence.id}")
+        print(f"processing sequence {i} out of {len(sequences)}: {sequence.id}") # ^^
         
         try:
-            protein_sequence = sequence.seq.translate(to_stop=True)
+            protein_sequence = sequence.seq.translate(to_stop=True) #convert to protein seq
             
-            result_handle = NCBIWWW.qblast(
-                program="blastp",
+            result_handle = NCBIWWW.qblast( 
+                program="blastp", #run blastp to find gene function
                 database=database,
                 sequence=protein_sequence,
                 hitlist_size=10
@@ -35,7 +39,7 @@ def run_blast_nucleotide(fasta_file="app/Jollymon_gene_2.fasta", database="nr"):
             print("-" * 100)
             print(f"{'Hit Description':<60} {'E-value':<15} {'Score':<10} {'Identity %':<10}")
             print("-" * 100)
-            if len(blast_record.alignments) == 0: 
+            if len(blast_record.alignments) == 0: #everything here prints results onto terminal for now
                 print("No hits found")
                 continue
                 
@@ -49,5 +53,9 @@ def run_blast_nucleotide(fasta_file="app/Jollymon_gene_2.fasta", database="nr"):
             print(f"error processing sequence {sequence.id}: {str(e)}")
             continue
 
+def main():
+    run_blastp()
+
 if __name__ == "__main__":
-    run_blast_nucleotide()
+    main()
+    

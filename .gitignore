@@ -5,6 +5,7 @@ log
 archive
 ncbi-blast-2.16.0+
 nt_db
+hhpred
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

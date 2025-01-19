@@ -39,7 +39,8 @@ def genemark(fasta_file: str, prokaryotic: bool = True):
     command = ["perl", "../gms2_macos/gms2.pl"] #run subprocess to access tool
     command.extend([
         "--seq", fixed_fasta_file,
-        "--genome-type", "bacteria" if prokaryotic else "auto"
+        "--genome-type", "bacteria" if prokaryotic else "auto",
+        "--ps-output"
     ])
     
     try:
