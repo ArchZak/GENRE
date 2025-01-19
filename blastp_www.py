@@ -4,8 +4,6 @@ from Bio.Blast import NCBIXML
 import os
 import ssl
 
-#really slow(1 min runtime) so it may require the use of setting up a local database
-
 def run_blastp(fasta_file="app/Jollymon_gene_2.fasta", database="nr"):
     if not os.path.exists(fasta_file): #checks to see if fasta_file exists, should return page error later
         raise FileNotFoundError(f"given fasta file not found: {fasta_file}")
