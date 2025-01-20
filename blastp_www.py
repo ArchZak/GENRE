@@ -33,19 +33,20 @@ def run_blastp(fasta_file="app/Jollymon_gene_2.fasta", database="nr"):
             blast_records = NCBIXML.parse(result_handle)
             blast_record = next(blast_records)
             
-            print(f"\nResults for {sequence.id}:")
-            print("-" * 100)
-            print(f"{'Hit Description':<60} {'E-value':<15} {'Score':<10} {'Identity %':<10}")
-            print("-" * 100)
-            if len(blast_record.alignments) == 0: #everything here prints results onto terminal for now
-                print("No hits found")
-                continue
+            with open("blastp_downloads/blastp_results.txt", "w") as file:
+                file.write(f"\nResults for {sequence.id}:\n")
+                file.write("-" * 100 + "\n")
+                file.write(f"{'Hit Description':<60} {'E-value':<15} {'Score':<10} {'Identity %':<10}\n")
+                file.write("-" * 100 + "\n")
                 
-            for alignment in blast_record.alignments:
-                for hsp in alignment.hsps:
-                    identity_pct = (hsp.identities / hsp.align_length) * 100
-                    desc = alignment.title[:57] + "..." if len(alignment.title) > 60 else alignment.title
-                    print(f"{desc:<60} {hsp.expect:<15.2e} {hsp.score:<10.1f} {identity_pct:<10.1f}")
+                if len(blast_record.alignments) == 0:  # everything here prints results onto a file now
+                    file.write("No hits found\n")
+                else:
+                    for alignment in blast_record.alignments:
+                        for hsp in alignment.hsps:
+                            identity_pct = (hsp.identities / hsp.align_length) * 100
+                            desc = alignment.title#[:57] + "..." if len(alignment.title) > 60 else alignment.title
+                            file.write(f"{desc:<60} {hsp.expect:<15.2e} {hsp.score:<10.1f} {identity_pct:<10.1f}\n")
             
         except Exception as e:
             print(f"error processing sequence {sequence.id}: {str(e)}")
