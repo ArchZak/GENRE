@@ -1,10 +1,13 @@
-#personal
+#personally added
 gms2_macos
 .gmhmmp2_key
 log
 archive
 ncbi-blast-2.16.0+
 nt_db
+hhpred
+galaxy_downloads
+blastp_downloads
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
