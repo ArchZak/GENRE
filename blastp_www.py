@@ -45,7 +45,7 @@ def run_blastp(fasta_file="app/Jollymon_gene_2.fasta", database="nr"):
                     for alignment in blast_record.alignments:
                         for hsp in alignment.hsps:
                             identity_pct = (hsp.identities / hsp.align_length) * 100
-                            desc = alignment.title#[:57] + "..." if len(alignment.title) > 60 else alignment.title
+                            desc = alignment.title
                             file.write(f"{desc:<60} {hsp.expect:<15.2e} {hsp.score:<10.1f} {identity_pct:<10.1f}\n")
             
         except Exception as e:
