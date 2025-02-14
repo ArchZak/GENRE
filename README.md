@@ -32,6 +32,7 @@ Aside from the web development. I plan to incorporate many quality of life featu
 - I would like to reintegrate the AUGUSTUS tool to see if I can incorporate eukaryotic annotations
 - I would like to locally host BLASTp for faster searchers
 - If resources ever permit me to, I would like to toy with the idea of using my own model. I think it might be a good idea to use a transformer, and then train it on data from the  model I'm working on frokm OpenAI
+- Add jobs or listeners to periodically check galaxy and see how the storage is doing
 
 ## Setup
 
