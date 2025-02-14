@@ -19,11 +19,11 @@ The proof of concept currently demonstrates:
 - Automated submission and retrieval of results from Galaxy tools, BLASTP over the internet, and locally running GenMarkS2
 - Concurrent processing of multiple analysis tools
 - Basic parsing and comparison of gene predictions
-- Returning LLM feedback regarding the top three predictions onto the terminal with terminal user interface
+- Returning LLM feedback regarding the top three functional predictions onto the terminal with a terminal user interface
 
 ## Work in Progress
 Currently working on:
-- Implementing control structures and enchancing error handling
+- Implementing user control structures and enchancing error handling
 - Developing a more sophisticated user interface in the form of a web app
 
 ## Future Plans
