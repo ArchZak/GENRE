@@ -5,6 +5,8 @@ GENRE is a tool that integrates LLM feedback into prokaryotic genome annotation.
 
 Currently, researchers all around the world are annotating genomes, and this can be a time-consuming process. During my second semester of research, I was manually annotating the Jollymon phage genome. This proved to be a menial process, and I wondered if this could be automated. I then thought about my internship in LLM feedback for OSCEs, and then GENRE was born! Now, as I'm getting more experienced in genetics and computer science conventions, I am trying to replicate new base-lines using code and LLM feedback.
 
+This is currently the first iteration. I wanted to see if this was possible, since I hadn't seen anyone else try this yet. As an aspiring computational biologist, I believe I have a duty to create tools that can support my fellow experimentalists. GENRE will be no exception to that duty. I want to try and push this project to be more than just a resume piece, but something that can serve as a building block for something greater. 
+
 ## Current Implementation
 The proof of concept currently demonstrates:
 
