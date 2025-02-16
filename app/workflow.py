@@ -2,6 +2,8 @@ from bioblend.galaxy import GalaxyInstance
 from dotenv import load_dotenv
 from Bio.Blast import NCBIWWW
 from Bio import SeqIO
+from Bio.Seq import Seq
+import re
 from Bio.Blast import NCBIXML
 from Bio.SeqRecord import SeqRecord
 import concurrent.futures
@@ -194,23 +196,26 @@ def run_blastp(fasta_file=None):
 
 def parse_top_10_blast_hits():
     top_10_hits = {}
-    i=1
-    file = "app/blastp_downloads/blastp_results.txt"
-
-    for line_number in range(2,12):
-        line = linecache.getline(file, line_number)
-        if line:
-            split_line = line.split(',')
-            info = {
-                'description': split_line[0],
-                'e-value': split_line[1],
-                'identity': float(split_line[3])
-            }
-
-            top_10_hits[i] = info
-            i+=1
-
-    linecache.clearcache()
+    file = "blastp_downloads/blastp_results.txt"
+    
+    with open(file, "r") as f:
+        lines = f.readlines()
+    
+    last_10_lines = lines[-10:]
+    
+    for i, line in enumerate(last_10_lines, 1):
+        split_line = line.strip().split(',')
+        
+        if len(split_line) < 4:
+            continue  
+ 
+        info = {
+            'description': ','.join(split_line[:-3]),
+            'e-value': split_line[-3],
+            'identity': float(split_line[-1])
+        }
+        
+        top_10_hits[i] = info
     
     return top_10_hits
             
@@ -276,6 +281,40 @@ def run_hhsearch(fasta_file=None):
     hhsearch_file = gi.datasets.download_dataset(output_dataset_id, "galaxy_downloads")
     return hhsearch_file
 
+def translate_fasta(input_file):
+    protein_records = []
+    
+    for record in SeqIO.parse(input_file, "fasta"):
+        protein_seq = record.seq.translate()
+        
+        protein_record = SeqRecord(
+            protein_seq,
+            id=record.id,
+            description=f"translated from {record.description}"
+        )
+        protein_records.append(protein_record)
+    
+    SeqIO.write(protein_records, "output_protein.fasta", "fasta")
+    return "output_protein.fasta"
+
+def gene_fasta_maker(genemark_g, gene_number, fasta, output):
+    direction = genemark_g.get(gene_number).get('strand_direction')
+    start = genemark_g.get(gene_number).get('start')
+    stop = genemark_g.get(gene_number).get('stop')
+
+    record = SeqIO.read(fasta, "fasta")
+    fasta_seq = record.seq
+
+    if direction == '+':
+        gene_seq = fasta_seq[start-1:stop] 
+    elif direction == '-':
+        gene_seq = fasta_seq[stop-1:start].reverse_complement()
+
+    gene_record = SeqIO.SeqRecord(Seq(gene_seq), id=f"gene_{gene_number}", description="extracted gene sequence")
+
+    with open(output, "w") as output_handle:
+        SeqIO.write(gene_record, output_handle, "fasta")
+
 def temp(prokka_g,genemark_g): #temporary structure to show an example of user workflow
     sentinel = True
 
@@ -293,22 +332,37 @@ def temp(prokka_g,genemark_g): #temporary structure to show an example of user w
             return gene_number
 
 def main():
-    # user will be asked to input their fasta nuc of choice here
+    # user will be asked to input their fasta nuc of choice here on website
+    uploaded_file = "random.fasta"
     print("Please wait for Prokka and GeneMarkS2 to finish running, this may take a moment")
+
     with concurrent.futures.ThreadPoolExecutor() as executor:
-        prokka_future = executor.submit(run_prokka, "Jollymon.fasta")
-        executor.submit(run_genemark, "Jollymon.fasta")
+        prokka_future = executor.submit(run_prokka, uploaded_file)
+        executor.submit(run_genemark, uploaded_file)
+
     genemark_genes = count_genemark_genes("gms2.lst")
     prokka_file = prokka_future.result()
     prokka_genes = count_prokka_genes(prokka_file)
-    gene_number = temp(prokka_genes,genemark_genes) #add something to grab gene 2 seq
-    with concurrent.futures.ThreadPoolExecutor() as executor2:
-        executor2.submit(run_blastp, "Jollymon_gene_2.fasta") #running gene 2 for example sake right now, 
-        future_hhsearch = executor2.submit(run_hhsearch,"output_protein.fasta")
-    top_10_blast_hits = parse_top_10_blast_hits()
-    top_10_hh_hits = parse_top_10_hh_hits(future_hhsearch)
-    
+    gene_number = temp(prokka_genes,genemark_genes) 
 
+    output_file = f'gene_{gene_number}.fasta'
+
+    gene_fasta_maker(genemark_genes, gene_number, uploaded_file, output_file)
+
+    protein_seq_file = translate_fasta(output_file)
+
+    with concurrent.futures.ThreadPoolExecutor() as executor2:
+        executor2.submit(run_blastp, output_file) 
+        hhsearch_future = executor2.submit(run_hhsearch, protein_seq_file)
+
+    top_10_blast_hits = parse_top_10_blast_hits()
+    hh_file = hhsearch_future.result()
+    top_10_hh_hits = parse_top_10_hh_hits(hh_file)
+
+    print(top_10_blast_hits)
+    print(top_10_hh_hits)
+    
+    # AI stuff here
 
 
 main()
