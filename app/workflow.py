@@ -18,7 +18,7 @@ load_dotenv()
 client = OpenAI( 
   api_key=os.getenv("OPEN_AI_KEY")
 )
-#using finetuned model for first iteration of GENRE
+#using finetuned model for first iteration of GENRE to experiment with OpenAI API
 
 gi = GalaxyInstance('https://usegalaxy.org', key=os.getenv("GALAXY_API_KEY"))
 history_id = os.getenv("HISTORY_ID")
@@ -26,12 +26,12 @@ history_id = os.getenv("HISTORY_ID")
 def run_prokka(file=None):
     tool_id = "toolshed.g2.bx.psu.edu/repos/crs4/prokka/prokka/1.14.6+galaxy1"
 
-    upload_response = gi.tools.upload_file(file, history_id)
+    upload_response = gi.tools.upload_file(file, history_id) # need to upload fasta file to galaxy instance first
     dataset_id = upload_response.get('outputs')[0].get('id')
     upload_job_id = upload_response.get('jobs', [])[0].get('id')
 
     upload_job_state = ""
-    while upload_job_state != 'ok':   # checks job status before moving on # UNDERSTAND WHAT DIFFERENT JOB STATES EXIST TO HAVE BETTER ERROR HANDLING
+    while upload_job_state != 'ok':   
         upload_job = gi.jobs.show_job(upload_job_id, True)
         upload_job_state = upload_job.get('state')
         time.sleep(1)
@@ -57,7 +57,7 @@ def run_prokka(file=None):
     prokka_job_id = prokka_run.get('jobs', [])[0].get('id')
 
     prokka_job_state = ""
-    while prokka_job_state != 'ok':
+    while prokka_job_state != 'ok': # job takes about 1 minute to run on average
         prokka_job = gi.jobs.show_job(prokka_job_id, True)
         prokka_job_state = prokka_job.get('state')
         time.sleep(1)
@@ -65,13 +65,13 @@ def run_prokka(file=None):
     prokka_results = gi.jobs.show_job(prokka_job_id, True)
     output_dataset_id = prokka_results.get('outputs', {}).get('out_gff', {}).get('id')
     prokka_file = gi.datasets.download_dataset(output_dataset_id, "galaxy_downloads")
-    return prokka_file
+    return prokka_file # returns prokka file path
 
 def run_genemark(fasta_file: str):
-    if not os.path.exists(fasta_file): #checks to see if fasta_file exists, should return page error later
+    if not os.path.exists(fasta_file): #checks to see if fasta_file exists, should return page error later in final product as a general thing
         raise FileNotFoundError(f"given fasta file not found: {fasta_file}")
     
-    command = ["perl", "../gms2_macos/gms2.pl"] # run subprocess command to access tool
+    command = ["perl", "../gms2_macos/gms2.pl"] # run subprocess command to access tool downloaded onto local device
     command.extend([
         "--seq", fasta_file,
         "--genome-type", "auto"
@@ -85,7 +85,7 @@ def run_genemark(fasta_file: str):
             check=True
         )
             
-    except subprocess.CalledProcessError as e: # subprocess error handling
+    except subprocess.CalledProcessError as e: # subprocess error handling required to run
         print(f"Error running GeneMarkS: {e}")
         if e.stderr: 
             print("\nError output:") 
@@ -101,7 +101,7 @@ def count_genemark_genes(genemark_file):
     
     with open(genemark_file, 'r') as file:
         for line in file:
-            if not line.strip():
+            if not line.strip(): 
                 continue
             
             parts = line.split()
@@ -118,7 +118,7 @@ def count_genemark_genes(genemark_file):
                 
                 parsed_data[gene_number] = info
             if len(parts) < 9:
-                continue # HANDLE THE < AND > LINES AHHHHH
+                continue # reminder to handle the < and > lines in error handling iteration
 
             gene_number = int(parts[0])  # The gene number
             info = {
@@ -130,9 +130,9 @@ def count_genemark_genes(genemark_file):
             
             parsed_data[gene_number] = info
     
-    return parsed_data
+    return parsed_data # returns dict of genes from genemark output file
 
-def count_prokka_genes(prokka_file):
+def count_prokka_genes(prokka_file): #same functionality and logic as above
     parsed_data = {}
     i=1
     with open(prokka_file, 'r') as file:
@@ -156,19 +156,18 @@ def count_prokka_genes(prokka_file):
     
     return parsed_data
 
-def run_blastp(fasta_file=None):
+def run_blastp(fasta_file=None): # runs over internet, should look into local blastp
     if not os.path.exists(fasta_file): #checks to see if fasta_file exists, should return page error later
         raise FileNotFoundError(f"given fasta file not found: {fasta_file}")
     
     ssl._create_default_https_context = ssl._create_unverified_context #wont run without ssl verification
     
-    sequences = list(SeqIO.parse(fasta_file, "fasta")) #parse fasta file
+    sequences = list(SeqIO.parse(fasta_file, "fasta")) #parse fasta file, this kind of handling may be better for multiple genes asynchronously running
     
     if not sequences:
         raise ValueError(f"no sequences found in {fasta_file}") #check for fasta file
     
     for sequence in sequences:
-        
         try:
             protein_sequence = sequence.seq.translate(to_stop=True) #convert to protein seq
             
@@ -183,7 +182,7 @@ def run_blastp(fasta_file=None):
             blast_record = next(blast_records)
             
             with open("blastp_downloads/blastp_results.txt", "w") as file:
-                file.write("Hit Description,E-value,Score,Identity %\n")  # CSV-style header
+                file.write("Hit Description,E-value,Score,Identity %\n")  # csv-styled header
 
                 if len(blast_record.alignments) == 0:
                     raise ValueError("No hits found")
@@ -194,60 +193,11 @@ def run_blastp(fasta_file=None):
                             desc = alignment.title
                             file.write(f"{desc},{hsp.expect:.2e},{hsp.score:.1f},{identity_pct:.1f}\n")
 
-            
         except Exception as e:
             print(f"error processing sequence : {str(e)}")
             continue
 
-def parse_top_10_blast_hits():
-    top_10_hits = {}
-    file = "blastp_downloads/blastp_results.txt"
-    
-    with open(file, "r") as f:
-        lines = f.readlines()
-    
-    last_10_lines = lines[-10:]
-    
-    for i, line in enumerate(last_10_lines, 1):
-        split_line = line.strip().split(',')
-        
-        if len(split_line) < 4:
-            continue  
- 
-        info = {
-            'description': ','.join(split_line[:-3]),
-            'e-value': split_line[-3],
-            'identity': float(split_line[-1])
-        }
-        
-        top_10_hits[i] = info
-    
-    return top_10_hits
-            
-def parse_top_10_hh_hits(file_path):
-    top_10_hits = {}
-    i=1
-
-    with open(file_path, "r") as file:
-        for line in file:
-            match = re.match(r"\s*\d+\s+(.+?)\s+([\d.]+)\s+", line)
-            if match:
-                description = match.group(1).strip()
-                probability = float(match.group(2))
-                
-                info = {
-                    'description': description,
-                    'probability': probability
-                }
-
-                top_10_hits[i] = info
-                i+=1
-            
-            if i > 10:
-                return top_10_hits
-    
-
-def run_hhsearch(fasta_file=None):
+def run_hhsearch(fasta_file=None): 
     tool_id = "toolshed.g2.bx.psu.edu/repos/guerler/hhsearch/hhsearch/3.2.0+galaxy0"
 
     upload_response = gi.tools.upload_file(fasta_file, history_id)
@@ -284,9 +234,58 @@ def run_hhsearch(fasta_file=None):
     output_dataset_id = hhsearch_results.get('outputs', {}).get('output', {}).get('id')
 
     hhsearch_file = gi.datasets.download_dataset(output_dataset_id, "galaxy_downloads")
-    return hhsearch_file
+    return hhsearch_file # returns hhsearch file path
 
-def translate_fasta(input_file):
+# END REGION OF DATA FETCHING
+
+def parse_top_10_blast_hits(): #parses the 10 top hits from blastp and formats into a dict
+    top_10_hits = {}
+    file = "blastp_downloads/blastp_results.txt"
+    
+    with open(file, "r") as f:
+        lines = f.readlines()
+    
+    last_10_lines = lines[-10:]
+    
+    for i, line in enumerate(last_10_lines, 1):
+        split_line = line.strip().split(',')
+        
+        if len(split_line) < 4:
+            continue  
+ 
+        info = {
+            'description': ','.join(split_line[:-3]), # best for handling errors since multispecies returns happen
+            'e-value': split_line[-3],
+            'identity': float(split_line[-1])
+        }
+        
+        top_10_hits[i] = info
+    
+    return top_10_hits
+            
+def parse_top_10_hh_hits(file_path):
+    top_10_hits = {}
+    i=1
+
+    with open(file_path, "r") as file:
+        for line in file:
+            match = re.match(r"\s*\d+\s+(.+?)\s+([\d.]+)\s+", line) # this regex ensures that the line is a hit line
+            if match:
+                description = match.group(1).strip()
+                probability = float(match.group(2))
+                
+                info = {
+                    'description': description,
+                    'probability': probability
+                }
+
+                top_10_hits[i] = info
+                i+=1
+            
+            if i > 10:
+                return top_10_hits # ensures we only get the top 10 hits
+
+def translate_fasta(input_file): # translates the fasta file into a protein sequence for hhsearch, may be temporary, was exploring different options
     protein_records = []
     
     for record in SeqIO.parse(input_file, "fasta"):
@@ -302,7 +301,7 @@ def translate_fasta(input_file):
     SeqIO.write(protein_records, "output_protein.fasta", "fasta")
     return "output_protein.fasta"
 
-def gene_fasta_maker(genemark_g, gene_number, fasta, output):
+def gene_fasta_maker(genemark_g, gene_number, fasta, output): # makes the fasta file for the gene of choice
     direction = genemark_g.get(gene_number).get('strand_direction')
     start = genemark_g.get(gene_number).get('start')
     stop = genemark_g.get(gene_number).get('stop')
@@ -336,7 +335,7 @@ def temp(prokka_g,genemark_g): #temporary structure to show an example of user w
             sentinel = False
             return gene_number
         
-def temp_llm_feedback(gene_number, genemark_genes, prokka_genes, blastp_hits, hh_hits):
+def temp_llm_feedback(gene_number, genemark_genes, prokka_genes, blastp_hits, hh_hits): # temporary function to show an example of llm response
     genemark_direction = genemark_genes.get(gene_number).get('strand_direction')
     genemark_start = genemark_genes.get(gene_number).get('start')
     genemark_stop = genemark_genes.get(gene_number).get('stop')
@@ -346,8 +345,8 @@ def temp_llm_feedback(gene_number, genemark_genes, prokka_genes, blastp_hits, hh
     prokka_stop = prokka_genes.get(gene_number).get('stop')
 
     if gene_number-1 > 0:
-        genemark_gap = genemark_start-genemark_stop.get(gene_number-1).get('stop')-1
-        prokka_gap = prokka_start-prokka_stop.get(gene_number-1).get('stop')-1
+        genemark_gap = genemark_start-genemark_stop-1
+        prokka_gap = prokka_start-prokka_stop-1
     else:
         genemark_gap = "No overlap or gap"
         prokka_gap = "No overlap or gap"

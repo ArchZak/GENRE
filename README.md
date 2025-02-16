@@ -16,8 +16,19 @@ The proof of concept currently demonstrates:
   - BLASTP (functional analysis)
   - HHSearch (functional analysis)
 - Parallel execution of analysis tools using ThreadPoolExecutor
-- Basic comparison of start and stop between Prokka and GeneMarkS2 predictions
+- Basic comparison of start, stop, and overlap between Prokka and GeneMarkS2 predictions
 - Functional analysis comparison between HHSearch and BLASTp
+- Temporary file-based storage system (to be replaced with cloud database)
+- Basic command-line interface (to be replaced with web UI)
+
+## Planned Architecture Improvements
+- Moving away from file-based storage to a proper database system:
+  - Implementation of MongoDB/some cloud storage for job storage and retrieval
+  - Caching of previous results for identical FASTA sequences
+  - Structured storage of analysis results and LLM feedback
+- Replacing temporary command-line interface with a full web application
+- Implementing proper user authentication and job management
+- Moving from local file handling to cloud storage for scalability
 
 ## Proof of Concept Features
 - Automated submission and retrieval of results from Galaxy tools, BLASTP over the internet, and locally running GenMarkS2
@@ -29,6 +40,7 @@ The proof of concept currently demonstrates:
 Currently working on:
 - Implementing user control structures and enchancing error handling
 - Developing a more sophisticated user interface in the form of a web app
+- Using my own model to generate feedback rather than OpenAI's API
 
 ## Future Plans
 Aside from the web development. I plan to incorporate many quality of life features:
@@ -38,17 +50,33 @@ Aside from the web development. I plan to incorporate many quality of life featu
 - If resources ever permit me to, I would like to toy with the idea of using my own model. I think it might be a good idea to use a transformer, and then train it on data from the  model I'm working on frokm OpenAI
 - Add jobs or listeners to periodically check galaxy and see how the storage is doing
 
-## Setup
+## Tool Setup
 
 source .venv/bin/activate
-requirements.txt coming soon
+pip install -r requirements.txt
+
+In the same folder as `app`, you should create a `blastp_downloads` and `galaxy_downloads` folder. 
+
+### Environment 
+Create a `.env` file in the root directory with the following variables:
+
+GALAXY_API_KEY=your_galaxy
+HISTORY_ID = your_history_id
+
+The set up is somewhat unconventional after this.
+
+You are going to need to locally download GeneMarkS2. Make sure you put your key in the same folder as the one you plan to run code in.
+You will need to create a usegalaxy account, and then create an api key for your own history and galaxy use. The storage is very generous with 250 gigabytes of free storage.
+
+After you do both, integrate a model of your own choice. To simply test out the code, you could use Openai's API. This is a proof of concept. 
 
 ## Note for Readers
-This project demonstrates:
-- Integration of complex bioinformatics tools
+This project currently demonstrates:
+- Integration of various bioinformatics tools across different platforms being used asynchronously
 - Parallel processing implementation
 - API interaction with Galaxy
 - Error handling in bioinformatics contexts
 - Modern Python practices (async operations, type hints)
+- I have included a random fasta file to test with
 
-The current implementation serves as a foundation for a more comprehensive gene analysis platform, showcasing both technical capabilities and bioinformatics domain knowledge.
+The current implementation serves as a foundation for a more comprehensive gene analysis platform. Many current implementations (file handling, CLI interface, etc.) are temporary and will be replaced with more robust solutions in the production version.
