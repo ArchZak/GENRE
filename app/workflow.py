@@ -1,4 +1,5 @@
 from bioblend.galaxy import GalaxyInstance
+from openai import OpenAI
 from dotenv import load_dotenv
 from Bio.Blast import NCBIWWW
 from Bio import SeqIO
@@ -7,13 +8,17 @@ import re
 from Bio.Blast import NCBIXML
 from Bio.SeqRecord import SeqRecord
 import concurrent.futures
-import linecache
 import subprocess
 import time
 import os
 import ssl
 
 load_dotenv()
+
+client = OpenAI( 
+  api_key=os.getenv("OPEN_AI_KEY")
+)
+#using finetuned model for first iteration of GENRE
 
 gi = GalaxyInstance('https://usegalaxy.org', key=os.getenv("GALAXY_API_KEY"))
 history_id = os.getenv("HISTORY_ID")
@@ -330,6 +335,41 @@ def temp(prokka_g,genemark_g): #temporary structure to show an example of user w
         if option == 'y':
             sentinel = False
             return gene_number
+        
+def temp_llm_feedback(gene_number, genemark_genes, prokka_genes, blastp_hits, hh_hits):
+    genemark_direction = genemark_genes.get(gene_number).get('strand_direction')
+    genemark_start = genemark_genes.get(gene_number).get('start')
+    genemark_stop = genemark_genes.get(gene_number).get('stop')
+
+    prokka_direction = prokka_genes.get(gene_number).get('strand_direction')
+    prokka_start = prokka_genes.get(gene_number).get('start')
+    prokka_stop = prokka_genes.get(gene_number).get('stop')
+
+    if gene_number-1 > 0:
+        genemark_gap = genemark_start-genemark_stop.get(gene_number-1).get('stop')-1
+        prokka_gap = prokka_start-prokka_stop.get(gene_number-1).get('stop')-1
+    else:
+        genemark_gap = "No overlap or gap"
+        prokka_gap = "No overlap or gap"
+
+    data = {
+        "Start/Stop Site Analysis": {
+            "GeneMarkS2": {"start": genemark_start, "stop": genemark_stop, "direction": genemark_direction, "overlap": genemark_gap},
+            "Prokka": {"start": prokka_start, "stop": prokka_stop, "direction": prokka_direction, "overlap": prokka_gap}
+        },
+        "BLASTp": blastp_hits,
+        "HHsearch": hh_hits
+    }   
+
+    response = client.chat.completions.create(
+        model = os.getenv('MODEL'),
+        messages = [
+            {"role": "system", "content": os.getenv('MESSAGE')},
+            {"role": "user", "content": "Input data: " + str(data)}
+        ]
+    )
+
+    return response.choices[0].message.content
 
 def main():
     # user will be asked to input their fasta nuc of choice here on website
@@ -359,10 +399,7 @@ def main():
     hh_file = hhsearch_future.result()
     top_10_hh_hits = parse_top_10_hh_hits(hh_file)
 
-    print(top_10_blast_hits)
-    print(top_10_hh_hits)
-    
-    # AI stuff here
-
+    results = temp_llm_feedback(gene_number, genemark_genes, prokka_genes, top_10_blast_hits, top_10_hh_hits)
+    print(results)
 
 main()
