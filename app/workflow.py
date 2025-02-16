@@ -346,8 +346,8 @@ def temp_llm_feedback(gene_number, genemark_genes, prokka_genes, blastp_hits, hh
     prokka_stop = prokka_genes.get(gene_number).get('stop')
 
     if gene_number-1 > 0:
-        genemark_gap = genemark_start-genemark_stop.get(gene_number-1).get('stop')-1
-        prokka_gap = prokka_start-prokka_stop.get(gene_number-1).get('stop')-1
+        genemark_gap = genemark_start-genemark_stop-1
+        prokka_gap = prokka_start-prokka_stop-1
     else:
         genemark_gap = "No overlap or gap"
         prokka_gap = "No overlap or gap"
