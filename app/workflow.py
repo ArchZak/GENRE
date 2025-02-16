@@ -5,6 +5,7 @@ from Bio import SeqIO
 from Bio.Blast import NCBIXML
 from Bio.SeqRecord import SeqRecord
 import concurrent.futures
+import linecache
 import subprocess
 import time
 import os
@@ -140,7 +141,7 @@ def count_prokka_genes(prokka_file):
                     'strand_direction': parts[6],
                     'start': int(parts[3]) if parts[6] == '+' else int(parts[4]),
                     'stop': int(parts[4]) if parts[6] == '+' else int(parts[3]), #basically checks for strand and assigns appropriately
-                    'gene_length': int(parts[4])-int(parts[3]),
+                    'gene_length': int(parts[4])-int(parts[3])+1,
                 }
 
                 parsed_data[i] = info
@@ -175,23 +176,66 @@ def run_blastp(fasta_file=None):
             blast_record = next(blast_records)
             
             with open("blastp_downloads/blastp_results.txt", "w") as file:
-                file.write(f"\nResults for {sequence.id}:\n")
-                file.write("-" * 100 + "\n")
-                file.write(f"{'Hit Description':<60} {'E-value':<15} {'Score':<10} {'Identity %':<10}\n")
-                file.write("-" * 100 + "\n")
-                
-                if len(blast_record.alignments) == 0:  # everything here prints results onto a file now
-                    file.write("No hits found\n")
+                file.write("Hit Description,E-value,Score,Identity %\n")  # CSV-style header
+
+                if len(blast_record.alignments) == 0:
+                    raise ValueError("No hits found")
                 else:
                     for alignment in blast_record.alignments:
                         for hsp in alignment.hsps:
                             identity_pct = (hsp.identities / hsp.align_length) * 100
                             desc = alignment.title
-                            file.write(f"{desc:<60} {hsp.expect:<15.2e} {hsp.score:<10.1f} {identity_pct:<10.1f}\n")
+                            file.write(f"{desc},{hsp.expect:.2e},{hsp.score:.1f},{identity_pct:.1f}\n")
+
             
         except Exception as e:
             print(f"error processing sequence : {str(e)}")
             continue
+
+def parse_top_10_blast_hits():
+    top_10_hits = {}
+    i=1
+    file = "app/blastp_downloads/blastp_results.txt"
+
+    for line_number in range(2,12):
+        line = linecache.getline(file, line_number)
+        if line:
+            split_line = line.split(',')
+            info = {
+                'description': split_line[0],
+                'e-value': split_line[1],
+                'identity': float(split_line[3])
+            }
+
+            top_10_hits[i] = info
+            i+=1
+
+    linecache.clearcache()
+    
+    return top_10_hits
+            
+def parse_top_10_hh_hits(file_path):
+    top_10_hits = {}
+    i=1
+
+    with open(file_path, "r") as file:
+        for line in file:
+            match = re.match(r"\s*\d+\s+(.+?)\s+([\d.]+)\s+", line)
+            if match:
+                description = match.group(1).strip()
+                probability = float(match.group(2))
+                
+                info = {
+                    'description': description,
+                    'probability': probability
+                }
+
+                top_10_hits[i] = info
+                i+=1
+            
+            if i > 10:
+                return top_10_hits
+    
 
 def run_hhsearch(fasta_file=None):
     tool_id = "toolshed.g2.bx.psu.edu/repos/guerler/hhsearch/hhsearch/3.2.0+galaxy0"
@@ -232,21 +276,39 @@ def run_hhsearch(fasta_file=None):
     hhsearch_file = gi.datasets.download_dataset(output_dataset_id, "galaxy_downloads")
     return hhsearch_file
 
+def temp(prokka_g,genemark_g): #temporary structure to show an example of user workflow
+    sentinel = True
+
+    print(f"{len(genemark_g)} genes were found by GeneMarkS2 in the nucleotide sequence, which ones would you like to submit for LLM feedback?")
+    print(f"{len(prokka_g)} genes were found by Prokka in the nucleotide sequence, which ones would you like to submit for LLM feedback?")
+    while sentinel:
+        gene_number = int(input("Enter gene number to view start and stop of: "))
+
+        print(f'{genemark_g[gene_number]}')
+        print(f'{prokka_g[gene_number]}')
+        option = input('Would you like to see the potential function of the gene? (y or n): ')
+
+        if option == 'y':
+            sentinel = False
+            return gene_number
+
 def main():
     # user will be asked to input their fasta nuc of choice here
+    print("Please wait for Prokka and GeneMarkS2 to finish running, this may take a moment")
     with concurrent.futures.ThreadPoolExecutor() as executor:
         prokka_future = executor.submit(run_prokka, "Jollymon.fasta")
         executor.submit(run_genemark, "Jollymon.fasta")
     genemark_genes = count_genemark_genes("gms2.lst")
     prokka_file = prokka_future.result()
     prokka_genes = count_prokka_genes(prokka_file)
-    print(f"{len(genemark_genes)} genes were found by GeneMarkS2 in the nucleotide sequence, which ones would you like to submit for LLM feedback?")
-    print(f"{len(prokka_genes)} genes were found by Prokka in the nucleotide sequence, which ones would you like to submit for LLM feedback?")
-    #this would come with a feature were you get to see each seq and where the disparities are
+    gene_number = temp(prokka_genes,genemark_genes) #add something to grab gene 2 seq
     with concurrent.futures.ThreadPoolExecutor() as executor2:
-        executor2.submit(run_blastp, "Jollymon_gene_2.fasta") #running gene 2 for example sake
+        executor2.submit(run_blastp, "Jollymon_gene_2.fasta") #running gene 2 for example sake right now, 
         future_hhsearch = executor2.submit(run_hhsearch,"output_protein.fasta")
-    # get blastp parse
-    # get hhsearch parse
+    top_10_blast_hits = parse_top_10_blast_hits()
+    top_10_hh_hits = parse_top_10_hh_hits(future_hhsearch)
+    
+
+
 
 main()
